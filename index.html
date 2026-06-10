@@ -3,12 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cave — Vins Naturels</title>
+<title>Folderolly - June Wine List</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;background:#faf9f7;color:#1a1a18;min-height:100vh}
 .top{background:#fff;border-bottom:1px solid #e8e5df;padding:16px 20px;position:sticky;top:0;z-index:10}
-.top h1{font-size:18px;font-weight:600;letter-spacing:-.3px;color:#1a1a18;margin-bottom:10px}
+.top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.top h1{font-size:18px;font-weight:600;letter-spacing:-.3px;color:#1a1a18}
+.lang-toggle{display:flex;border:1px solid #e0ddd7;border-radius:20px;overflow:hidden;flex-shrink:0}
+.lang-btn{font-size:12px;font-weight:600;padding:5px 12px;background:#fff;color:#999;border:none;cursor:pointer}
+.lang-btn.active{background:#1a1a18;color:#fff}
 .top p{font-size:12px;color:#888;margin-bottom:12px}
 .search-wrap{position:relative;margin-bottom:10px}
 .search-wrap input{width:100%;padding:10px 12px 10px 36px;border:1px solid #e0ddd7;border-radius:10px;background:#f5f4f1;font-size:14px;color:#1a1a18;outline:none}
@@ -40,144 +44,364 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,san
 <body>
 
 <div class="top">
-  <h1>Cave — Vins Naturels</h1>
+  <div class="top-row">
+    <h1 id="main-title">Folderolly - June Wine List</h1>
+    <div class="lang-toggle">
+      <button class="lang-btn active" data-lang="fr">FR</button>
+      <button class="lang-btn" data-lang="en">EN</button>
+    </div>
+  </div>
   <p id="count">90 vins</p>
   <div class="search-wrap">
     <span class="search-icon">🔍</span>
     <input type="text" id="search" placeholder="Rechercher producteur, cépage, région…">
   </div>
-  <div class="filters">
-    <button class="fbtn active" data-cat="all">Tous</button>
-    <button class="fbtn" data-cat="Blanc">Blanc</button>
-    <button class="fbtn" data-cat="Rouge">Rouge</button>
-    <button class="fbtn" data-cat="Rosé">Rosé</button>
-    <button class="fbtn" data-cat="Orange">Orange</button>
-    <button class="fbtn" data-cat="Pétillant">Pétillant</button>
-    <button class="fbtn" data-cat="Pét-nat">Pét-nat</button>
-  </div>
+  <div class="filters" id="filters"></div>
 </div>
 
 <div class="grid" id="grid"></div>
-<div class="empty" id="empty" style="display:none">Aucun vin ne correspond à votre recherche.</div>
+<div class="empty" id="empty" style="display:none"></div>
 
 <script>
+const ui={
+  fr:{title:"Cave — Vins Naturels",count:n=>n+' vin'+(n>1?'s':''),search:"Rechercher producteur, cépage, région…",empty:"Aucun vin ne correspond à votre recherche.",all:"Tous",cats:["Blanc","Rouge","Rosé","Orange","Pétillant","Pét-nat"]},
+  en:{title:"Cave — Natural Wines",count:n=>n+' wine'+(n!==1?'s':''),search:"Search producer, grape, region…",empty:"No wines match your search.",all:"All",cats:["White","Red","Rosé","Orange","Sparkling","Pet-nat"]}
+};
+
+const catMap={fr2en:{Blanc:"White",Rouge:"Red",Rosé:"Rosé",Orange:"Orange","Pétillant":"Sparkling","Pét-nat":"Pet-nat"},en2fr:{White:"Blanc",Red:"Rouge",Rosé:"Rosé",Orange:"Orange",Sparkling:"Pétillant","Pet-nat":"Pét-nat"}};
+const badgeClass={White:'b-blanc',Red:'b-rouge',Rosé:'b-rose',Orange:'b-orange',Sparkling:'b-petillant','Pet-nat':'b-petnat',Blanc:'b-blanc',Rouge:'b-rouge',"Pétillant":'b-petillant',"Pét-nat":'b-petnat'};
+
 const wines=[
-{title:"AB Initio Phillia 2021",region:"Languedoc, France",cat:"Blanc",grape:"Grenache Blanc, Roussanne",notes:"Blanc charnu et aromatique — fruit à noyau blanc, fleurs blanches et finale minérale saline. Riche mais frais."},
-{title:"Alessandro Viola Blanc de Blancs",region:"Sicile, Italie",cat:"Pétillant",grape:"Catarratto",notes:"Effervescent sicilien délicat — agrumes, fleur de pommier et belle tenue minérale crayeuse."},
-{title:"Azzara Antarès 2023",region:"Corse, France",cat:"Rouge",grape:"Nielluccio/Sangiovese",notes:"Rouge vif et herbal — cerise rouge, garrigue et acidité corse vivante."},
-{title:"Bruno Duchêne Odin 2021",region:"Roussillon, France",cat:"Orange",grape:"Grenache Gris, Macabeu",notes:"Blanc de macération complexe — abricot séché, cire d'abeille, épices oxydatives et tanins soyeux. Sérieux et profond."},
-{title:"Ca de Noci Tre Dame Frizzante Rosato 2022",region:"Émilie-Romagne, Italie",cat:"Pétillant",grape:"Lambrusco",notes:"Pétillant rosé charmeur — framboise, grenade et touche sauvage levurée. Festif et gastronomique."},
-{title:"Caroline Gimenez Preciado 2023",region:"Roussillon, France",cat:"Blanc",grape:"Grenache Blanc, Grenache Gris",notes:"Blanc vif et floral — pêche blanche, zeste d'agrumes et belle tension saline en finale."},
-{title:"Cotzé Riptide 2023",region:"Roussillon, France",cat:"Rouge",grape:"Grenache, Carignan",notes:"Juteux et vibrant — cerise noire, herbes sauvages et pointe poivrée. Direct et très buvable."},
-{title:"Cotzé Transhumance Blanc 2023",region:"Roussillon, France",cat:"Blanc",grape:"Grenache Blanc, Macabeu",notes:"Blanc frais et aromatique — melon, fenouil et finale caillouteuse honnête."},
-{title:"Côtes Rousses La Pente 2024",region:"Savoie, France",cat:"Blanc",grape:"Jacquère",notes:"Blanc alpin racé — agrumes, poivre blanc et acidité minérale tranchante."},
-{title:"Côtes Rousses Armenaz 2024",region:"Savoie, France",cat:"Blanc",grape:"Altesse/Roussette",notes:"Altesse élégante et complexe — poire, miel, arômes floraux alpins et belle colonne vertébrale."},
-{title:"Côtes Rousses Ensemble 2024",region:"Savoie, France",cat:"Blanc",grape:"Jacquère, Altesse",notes:"Assemblage savoyard léger et minéral — agrumes frais et herbes de montagne."},
-{title:"Côtes Rousses Ribambelle 2023",region:"Savoie, France",cat:"Rouge",grape:"Mondeuse",notes:"Mondeuse sombre et poivrée — violette, cerise noire et structure tannique alpine."},
-{title:"Domaine Brand Chimère 2023",region:"Alsace, France",cat:"Blanc",grape:"Assemblage",notes:"Assemblage alsacien expressif — épices exotiques, fruit à noyau mûr et cœur crémeux et minéral."},
-{title:"Domaine Brand Mandoline",region:"Alsace, France",cat:"Blanc",grape:"Pinot Blanc/Auxerrois",notes:"Léger et délicat — fleur de pommier, agrumes doux et épice fine. Facile et frais."},
-{title:"Domaine Brand Roi Soleil Riesling 2022",region:"Alsace, France",cat:"Blanc",grape:"Riesling",notes:"Riesling alsacien éclatant — citron vert, notes pétrolées, pêche blanche et acidité rasoir. Classique et de garde."},
-{title:"Domaine de L'Anglore Nizon 2023",region:"Tavel, Rhône, France",cat:"Rosé",grape:"Grenache, Clairette",notes:"Rosé pâle et sérieux — pastèque, herbes et finale sèche saline et minérale."},
-{title:"Domaine de L'Anglore Tavel 2022",region:"Tavel, Rhône, France",cat:"Rosé",grape:"Grenache, Cinsault",notes:"Un des rosés de référence de France — teinté d'ambre, texturé, cerise séchée, garrigue et longue finale épicée."},
-{title:"Domaine de La Loue La Brute 2023",region:"Jura, France",cat:"Blanc",grape:"Chardonnay",notes:"Chardonnay jurassien sauvage et non filtré — oxydatif, noisette, pomme jaune et caractère rustique en cire."},
-{title:"Domaine de La Loue Savagnin 2022",region:"Jura, France",cat:"Blanc",grape:"Savagnin",notes:"Savagnin ouillé authentique — noix, coing, curry jaune et longue finale saline. Profondément jurassien."},
-{title:"Domaine de la Tournelle Au lever du Rouge 2022",region:"Jura, France",cat:"Rouge",grape:"Poulsard",notes:"Poulsard d'une légèreté diaphane — fraise des bois, églantier et texture presque transparente."},
-{title:"Domaines des Bodines Savagnin 2018",region:"Jura, France",cat:"Blanc",grape:"Savagnin",notes:"Élevé sous voile — noix complexe, figue sèche, safran et acidité vive. Notes oxydatives profondes."},
-{title:"Domaines des Bodines Savagnin 2020",region:"Jura, France",cat:"Blanc",grape:"Savagnin",notes:"Expression plus jeune, encore oxydative — coing, curry et noisette grillée avec plus de fraîcheur."},
-{title:"Domaines des Bodines Savagnin Chardonnay 2019",region:"Jura, France",cat:"Blanc",grape:"Savagnin, Chardonnay",notes:"Assemblage qui adoucit la puissance du Savagnin — texture crémeuse, notes noisettées et pomme fraîche."},
-{title:"Domaine du Chamounet Loulou 2024",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Gamay carbonique frais et vibrant — fruits rouges juteux, pivoine et finale joyeuse désaltérante."},
-{title:"Domaine du Chamounet A la Fraiche 2024",region:"Beaujolais, France",cat:"Blanc",grape:"Chardonnay",notes:"Beaujolais Blanc croquant en faible intervention — pomme verte, citron et minéralité pierreuse."},
-{title:"Domaine Houillon Cinsault 2023",region:"Jura, France",cat:"Rouge",grape:"Cinsault",notes:"Cinsault pâle et parfumé du successeur de Pierre Overnoy — fraise, herbes et tanins quasi absents."},
-{title:"Domaine Houillon Gravières 2023",region:"Jura, France",cat:"Blanc",grape:"Chardonnay",notes:"Chardonnay jurassien de référence — tendu et pur, fruit jaune, craie et fraîcheur électrique."},
-{title:"Domaine Bangarang 2024",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Beaujolais pêchu et joueur — fruits rouges croquants, épice et énergie naturelle irrésistible."},
-{title:"Domaine Mosse Bisou 2024",region:"Anjou, Loire, France",cat:"Rouge",grape:"Cabernet Franc",notes:"Cab Franc souple et peu tannique — framboise, mine de crayon et violettes. Charmeur et gourmand."},
-{title:"Domaine Mosse Bonnes Blanches 2023",region:"Anjou, Loire, France",cat:"Blanc",grape:"Chenin Blanc",notes:"Chenin précis et minéral — cire d'abeille, coing, zeste d'agrume et longue finale crayeuse."},
-{title:"Domaine Mosse Combo 2025",region:"Anjou, Loire, France",cat:"Rouge",grape:"Cabernet Franc, Grolleau",notes:"Rouge léger et vif — herbes sauvages, baies rouges et fraîcheur croquante naturelle."},
-{title:"Domaine Mosse Moussamoussettes 2025",region:"Anjou, Loire, France",cat:"Pét-nat",grape:"Grolleau, Gamay",notes:"Pét-nat joueur et pétillant — fraise, framboise et touche sauvage levurée spontanée."},
-{title:"Es D'aqui Mefia'T",region:"Roussillon, France",cat:"Rouge",grape:"Grenache, Carignan",notes:"Rouge du sud robuste et rustique — prune noire, garrigue, cuir et épices chaudes."},
-{title:"Es D'aqui Paloma",region:"Roussillon, France",cat:"Blanc",grape:"Grenache Blanc, Macabeu",notes:"Blanc ensoleillé — pêche blanche, anis et légère touche réductive et savoureuse."},
-{title:"Es D'aqui Tracheo",region:"Roussillon, France",cat:"Orange",grape:"Grenache Gris",notes:"Macération avec teinte ambrée — écorce d'orange, herbes séchées et tanins terreux."},
-{title:"Filari Carussin 2022",region:"Piémont, Italie",cat:"Rouge",grape:"Barbera",notes:"Barbera naturelle — cerise, prune, rose séchée et acidité franche. Rustique et expressif."},
-{title:"Franz Saumon La Roue qui Tourne 2023",region:"Loire, France",cat:"Blanc",grape:"Menu Pineau",notes:"Cépage ligérien rare — délicat, floral, fleur blanche, pomme croquante et finale terreuse."},
-{title:"Franz Saumon Vin de Frantz 2024",region:"Loire, France",cat:"Blanc",grape:"Menu Pineau",notes:"Vif et direct — agrumes, notes herbacées et fine acidité."},
-{title:"François St Lo Les Pouches 2021",region:"Loire, France",cat:"Blanc",grape:"Melon de Bourgogne",notes:"Style Muscadet — citron, coquille d'huître et minéralité saline tranchante. Idéal avec les fruits de mer."},
-{title:"Hervé Souhaut Les Souteronnes 2024",region:"Ardèche, France",cat:"Blanc",grape:"Viognier, Marsanne",notes:"Riche et aromatique — abricot, chèvrefeuille et pêche blanche équilibrés par une acidité vive."},
-{title:"Hotline Vin de Tété 2023",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Gamay vibrant et festif — cerise juteuse, violette écrasée et croquant naturel."},
-{title:"Il Farneto Rio Rocca Still White",region:"Émilie-Romagne, Italie",cat:"Blanc",grape:"Trebbiano, Albana",notes:"Blanc italien terreux et texturé — camomille, zeste de citron et légère touche d'herbes sauvages."},
-{title:"Jean-Marc Dreyer Elios 2023",region:"Alsace, France",cat:"Blanc",grape:"Pinot Gris",notes:"Pinot Gris retenu et minéral — poire fumée, gingembre et finale sèche et nette."},
-{title:"Jérôme Balmet Tête de Citron 2021",region:"Savoie, France",cat:"Blanc",grape:"Roussette",notes:"Vif et floral — citron confit, fleur blanche et colonne vertébrale minérale et tendue."},
-{title:"Jérôme Balmet La Marbrière 2023",region:"Savoie, France",cat:"Blanc",grape:"Jacquère",notes:"Fraîcheur alpine — pomme verte croquante, fleur sauvage et finale crayeuse et nette."},
-{title:"La Ferme des Sept Lunes Raizin 2025",region:"Rhône, France",cat:"Rouge",grape:"Syrah",notes:"Syrah du Rhône nord — violette, olive noire, viande fumée et finale poivrée et structurée."},
-{title:"La Grapperie Pink B… 2023",region:"Loire, France",cat:"Rosé",grape:"Pineau d'Aunis",notes:"Rosé pâle et épicé — fraise des bois, poivre blanc et caractère vif et savoureux."},
-{title:"La Grapperie Premières Tries 2023",region:"Loire, France",cat:"Blanc",grape:"Chenin Blanc",notes:"Chenin ligérien — miel, coing, fleur d'agrume et acidité vibrante. Complexe et précis."},
-{title:"Le Petit Bouchon Mañana 2023",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Beaujolais décontracté et joyeux — fraise et cerise fraîches, finale légère et désaltérante."},
-{title:"Le Petit Bouchon Ultreïa 2023",region:"Beaujolais, France",cat:"Blanc",grape:"Chardonnay",notes:"Beaujolais Blanc facile à vivre — pomme, citron et fraîcheur simple et nette."},
-{title:"Le Petit Bouchon Y'a de Tout 2023",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay, Pinot Noir",notes:"Rouge assemblage quotidien — cerise, herbes et caractère naturel et vif."},
-{title:"Les Enfants Terribles Contre Jour Chapitre III",region:"Beaujolais, France",cat:"Orange",grape:"Chardonnay",notes:"Chardonnay oxydatif en macération — abricot séché, camomille et tanin terreux."},
-{title:"Les Enfants Terribles Esprit d'Alcove Chapitre III",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Gamay texturé et sérieux — cerise noire, épice et plus de structure que les cuvées classiques."},
-{title:"Les Enfants Terribles Sous les Peupliers 2023",region:"Beaujolais, France",cat:"Blanc",grape:"Aligoté",notes:"Aligoté vif et tranchant — citron, pomme verte et mordant crayeux. Pur et énergique."},
-{title:"Les Frères Soulier Clastre 2024",region:"Rhône, France",cat:"Rouge",grape:"Grenache",notes:"Grenache du sud — petits fruits rouges, garrigue, olive et finale chaude et généreuse."},
-{title:"Les Valseuses Ces Gens Là 2024",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Gamay frais et vibrant style cru — cerise rouge, violette et grain fin."},
-{title:"Les Valseuses Como El Agua 2023",region:"Beaujolais, France",cat:"Blanc",grape:"Chardonnay",notes:"Beaujolais Blanc fluide et expressif — citron, fleur blanche et finale minérale douce."},
-{title:"Lucas Madonia Tsavouisse 2023",region:"Savoie, France",cat:"Rouge",grape:"Mondeuse",notes:"Mondeuse sauvage et encré — mûre, violette, minerai ferreux et tanins fermes."},
-{title:"Mare Nostrum Vini Bora 2023",region:"Corse, France",cat:"Blanc",grape:"Vermentino",notes:"Blanc corse éclatant — agrumes, pêche blanche, minéralité saline et finale vive."},
-{title:"Mare Nostrum Vini Mistral 2022",region:"Corse, France",cat:"Rouge",grape:"Nielluccio/Sangiovese",notes:"Rouge corse ferme et aromatique — cerise acidulée, romarin et tanins pierreux."},
-{title:"Mas Foulaquier Into The Red 2024",region:"Pic Saint-Loup, France",cat:"Rouge",grape:"Syrah, Grenache",notes:"Rouge du sud sombre et épicé — mûre, tapenade d'olive et finale fumée à la garrigue."},
-{title:"Mas Foulaquier L'Orphée 2023",region:"Pic Saint-Loup, France",cat:"Blanc",grape:"Roussanne, Grenache Blanc",notes:"Blanc riche et aromatique — fleur blanche, pêche et texture crémeuse mais fraîche."},
-{title:"Mas Foulaquier Les Salades Pic St Loup 2024",region:"Pic Saint-Loup, France",cat:"Rouge",grape:"Syrah, Grenache",notes:"Pic Saint-Loup élégant — prune rouge, thym et finale soyeuse et herbeuse."},
-{title:"Mas Foulaquier Oiseau Blanc 2025",region:"Pic Saint-Loup, France",cat:"Blanc",grape:"Grenache Blanc",notes:"Blanc frais et facile — agrumes, pêche blanche et finale minérale nette."},
-{title:"Mas Foulaquier Orenji 2025",region:"Pic Saint-Loup, France",cat:"Orange",grape:"Grenache Gris",notes:"Teinte ambrée — écorce d'orange, abricot séché et tanin terreux en douceur."},
-{title:"Matthieu Appfel Avant la Tempête 2024",region:"Alsace, France",cat:"Blanc",grape:"Auxerrois, Pinot Blanc",notes:"Assemblage alsacien floral et expressif — poire, épice et finale sèche et nette."},
-{title:"Maxime Crotet Pinot Noir 2024",region:"Bourgogne, France",cat:"Rouge",grape:"Pinot Noir",notes:"Pinot léger en style bourguignon — cerise rouge, sous-bois et notes terreuses délicates."},
-{title:"Olivier Boulin SC2 2022/2023",region:"Bourgogne, France",cat:"Blanc",grape:"Chardonnay",notes:"Chardonnay tendu et minéral — pomme verte, agrumes et structure crayeuse bourguignonne."},
-{title:"Olivier Boulin Aligochocho 2020",region:"Bourgogne, France",cat:"Blanc",grape:"Aligoté",notes:"Aligoté élevé sérieux — citron confit, pomme verte et colonne saline et lumineuse."},
-{title:"Patrick Bouju FEstejar 2023",region:"Auvergne, France",cat:"Rouge",grape:"Gamay",notes:"Gamay auvergnat festif et vif — cerise rouge, herbes sauvages et énergie naturelle croquante."},
-{title:"Patrick Bourru GM 2023",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Gamay juteux et facile — fruits rouges éclatants et texture douce presque crémeuse."},
-{title:"Patrick Bouju La Commune 2021",region:"Auvergne, France",cat:"Rouge",grape:"Gamay",notes:"Plus de profondeur et de structure — cerise noire, minéralité volcanique et tanins fins."},
-{title:"Patrick Bouju Lulu 2023",region:"Auvergne, France",cat:"Blanc",grape:"Chardonnay",notes:"Chardonnay auvergnat minéral et pur — citron, craie et air de montagne frais."},
-{title:"Patrick Bouju PG 2023/2024",region:"Auvergne, France",cat:"Blanc",grape:"Pinot Gris",notes:"Pinot Gris atypique d'Auvergne — poire fumée, gingembre et finale sèche minérale."},
-{title:"Pedecastello Bianco Frizzante 2023",region:"Trentin, Italie",cat:"Pétillant",grape:"Nosiola",notes:"Blanc pétillant léger — fleur d'agrume, amande et bulles fines et nettes."},
-{title:"Pedecastello Rosato Frizzante 2023",region:"Trentin, Italie",cat:"Pétillant",grape:"Lagrein, Teroldego",notes:"Rosé pétillant vif — fruits sauvages, grenade et acidité vivante."},
-{title:"Perrault-Jadaud Haut les Choeurs",region:"Loire, France",cat:"Blanc",grape:"Chenin Blanc",notes:"Chenin expressif en faible intervention — miel, cire d'abeille, coing et acidité énergique."},
-{title:"Perrault-Jadaud Les Fauves",region:"Loire, France",cat:"Rouge",grape:"Cabernet Franc",notes:"Cab Franc sauvage et herbacé — groseille, graphite et tension végétale minérale."},
-{title:"Ruppert-Leroy Fosse Grely 2022",region:"Champagne, France",cat:"Pétillant",grape:"Pinot Noir",notes:"Champagne de vigneron — petits fruits rouges, brioche, craie et mousse tendue et vibrante."},
-{title:"Soeur Cadette Melon de Bourgogne 2023",region:"Bourgogne, France",cat:"Blanc",grape:"Melon de Bourgogne",notes:"Melon en Bourgogne intérieure — citron, coquille d'huître et minéralité saline fraîche."},
-{title:"Sous le Végétal Livia 2019",region:"Jura, France",cat:"Blanc",grape:"Chardonnay",notes:"Chardonnay jurassien évolué — noisette, coing et longue finale oxydative."},
-{title:"Tristan Rampon Aux Arbres",region:"Beaujolais, France",cat:"Rouge",grape:"Gamay",notes:"Gamay terreux et sous-bois — cerise rouge, champignon et tanin naturel doux."},
-{title:"Weingut Edgar Brutler Drum Bun 2023",region:"Autriche",cat:"Blanc",grape:"Grüner Veltliner",notes:"GrVe propre et poivré — poivre blanc, herbes vertes, agrumes et minéralité pierreuse."},
-{title:"Weingut Edgar Brutler Gisela 2023",region:"Autriche",cat:"Blanc",grape:"Welschriesling",notes:"Blanc autrichien frais et floral — pomme, poire et finale nette et croquante."},
-{title:"Werlisch Dreigenerationenwein 2021",region:"Styrie, Autriche",cat:"Blanc",grape:"Sauvignon Blanc, Assemblage",notes:"Assemblage trois générations — herbacé, minéral et complexe avec agrumes et fruit à noyau."},
-{title:"Werlitsch Freude 2019",region:"Styrie, Autriche",cat:"Orange",grape:"Sauvignon Blanc, Welschriesling",notes:"Macération élevée — ambre profond, coing, herbes séchées et finale texturée et tannique."},
-{title:"Yann Durrmann Riesling Sur Granit Rebbuehl 2024",region:"Alsace, France",cat:"Blanc",grape:"Riesling",notes:"Riesling sur granit — agrumes tranchants, petrichor, pêche blanche et longue colonne minérale."},
-{title:"Yann Durrmann Sylvaner 2024",region:"Alsace, France",cat:"Blanc",grape:"Sylvaner",notes:"Discret et pur — citron, camomille et fraîcheur minérale terreuse et nette."},
-{title:"Yves Amberg Ensemble 2024",region:"Alsace, France",cat:"Blanc",grape:"Assemblage",notes:"Expression alsacienne assemblée — floral et épicé avec fruit mûr et finale sèche."},
-{title:"Yves Amberg N°6 2024",region:"Alsace, France",cat:"Blanc",grape:"Pinot Noir Blanc",notes:"Pinot Noir vinifié en blanc — délicat, floral, arômes de fruits rouges et arête minérale."},
-{title:"Vouette et Sorbée Blanc d'Argile 22/23",region:"Champagne, France",cat:"Pétillant",grape:"Chardonnay",notes:"Champagne de vigneron sur argiles — riche et tendu, agrumes, cire d'abeille, craie et bulles fines persistantes."},
-{title:"Vouette et Sorbée Fidèle",region:"Champagne, France",cat:"Pétillant",grape:"Pinot Noir",notes:"Champagne pur Pinot Noir — petits fruits rouges, brioche, terre et mousse crémeuse et vive."},
+{title:"AB Initio Phillia 2021",region:"Languedoc, France",grape:"Grenache Blanc, Roussanne",
+  fr:{cat:"Blanc",notes:"Blanc charnu et aromatique — fruit à noyau blanc, fleurs blanches et finale minérale saline. Riche mais frais."},
+  en:{cat:"White",notes:"Textured and aromatic white with stone fruit, white flowers, and a saline mineral finish. Richly built but fresh."}},
+{title:"Alessandro Viola Blanc de Blancs",region:"Sicily / Sicile, Italy",grape:"Catarratto",
+  fr:{cat:"Pétillant",notes:"Effervescent sicilien délicat — agrumes, fleur de pommier et belle tenue minérale crayeuse."},
+  en:{cat:"Sparkling",notes:"Delicate Sicilian sparkling with citrus blossom, green apple, and chalky mineral drive. Light and precise."}},
+{title:"Azzara Antarès 2023",region:"Corsica / Corse, France",grape:"Nielluccio/Sangiovese",
+  fr:{cat:"Rouge",notes:"Rouge vif et herbal — cerise rouge, garrigue et acidité corse vivante."},
+  en:{cat:"Red",notes:"Bright, herbal and earthy red with red cherry, scrubby garrigue notes, and lively acidity."}},
+{title:"Bruno Duchêne Odin 2021",region:"Roussillon, France",grape:"Grenache Gris, Macabeu",
+  fr:{cat:"Orange",notes:"Blanc de macération complexe — abricot séché, cire d'abeille, épices oxydatives et tanins soyeux. Sérieux et profond."},
+  en:{cat:"Orange",notes:"Complex skin-contact white with dried apricot, beeswax, oxidative spice, and grippy tannins. Serious and layered."}},
+{title:"Ca de Noci Tre Dame Frizzante Rosato 2022",region:"Emilia-Romagna, Italy",grape:"Lambrusco",
+  fr:{cat:"Pétillant",notes:"Pétillant rosé charmeur — framboise, grenade et touche sauvage levurée. Festif et gastronomique."},
+  en:{cat:"Sparkling",notes:"Charming pétillant rosé with raspberry, pomegranate, and a wild yeasty edge. Fun, frothy and food-friendly."}},
+{title:"Caroline Gimenez Preciado 2023",region:"Roussillon, France",grape:"Grenache Blanc, Grenache Gris",
+  fr:{cat:"Blanc",notes:"Blanc vif et floral — pêche blanche, zeste d'agrumes et belle tension saline en finale."},
+  en:{cat:"White",notes:"Bright and floral with white peach, citrus zest, and a lively saline tension on the finish."}},
+{title:"Cotzé Riptide 2023",region:"Roussillon, France",grape:"Grenache, Carignan",
+  fr:{cat:"Rouge",notes:"Juteux et vibrant — cerise noire, herbes sauvages et pointe poivrée. Direct et très buvable."},
+  en:{cat:"Red",notes:"Juicy and vibrant with dark cherry, wild herbs, and a peppery kick. Low-fi and deeply drinkable."}},
+{title:"Cotzé Transhumancia Blanc 2023",region:"Roussillon, France",grape:"Grenache Blanc, Macabeu",
+  fr:{cat:"Blanc",notes:"Blanc frais et aromatique — melon, fenouil et finale caillouteuse honnête."},
+  en:{cat:"White",notes:"Crisp and aromatic with melon, fennel frond, and a stony finish. Honest and refreshing."}},
+{title:"Côtes Rousses La Pente 2024",region:"Savoie, France",grape:"Jacquère",
+  fr:{cat:"Blanc",notes:"Blanc alpin racé — agrumes, poivre blanc et acidité minérale tranchante."},
+  en:{cat:"White",notes:"Racy alpine white with citrus, white pepper, and piercingly fresh mineral acidity."}},
+{title:"Côtes Rousses Armenaz 2024",region:"Savoie, France",grape:"Altesse/Roussette",
+  fr:{cat:"Blanc",notes:"Altesse élégante et complexe — poire, miel, arômes floraux alpins et belle colonne vertébrale."},
+  en:{cat:"White",notes:"Elegant and complex Savoie white with pear, honey, and alpine floral aromas over a taut spine."}},
+{title:"Côtes Rousses Ensemble 2024",region:"Savoie, France",grape:"Jacquère, Altesse",
+  fr:{cat:"Blanc",notes:"Assemblage savoyard léger et minéral — agrumes frais et herbes de montagne."},
+  en:{cat:"White",notes:"Blended Savoie cuvée — light and mineral with crisp citrus and mountain herb freshness."}},
+{title:"Côtes Rousses Ribambelle 2023",region:"Savoie, France",grape:"Mondeuse",
+  fr:{cat:"Rouge",notes:"Mondeuse sombre et poivrée — violette, cerise noire et structure tannique alpine."},
+  en:{cat:"Red",notes:"Darkly fruited, peppery Mondeuse with violet, black cherry, and alpine tannic structure."}},
+{title:"Domaine Brand Chimère 2023",region:"Alsace, France",grape:"Assemblage / Blend",
+  fr:{cat:"Blanc",notes:"Assemblage alsacien expressif — épices exotiques, fruit à noyau mûr et cœur crémeux et minéral."},
+  en:{cat:"White",notes:"Textured and expressive Alsatian blend, with exotic spice, ripe stone fruit, and a creamy, mineral core."}},
+{title:"Domaine Brand Mandoline",region:"Alsace, France",grape:"Pinot Blanc/Auxerrois",
+  fr:{cat:"Blanc",notes:"Léger et délicat — fleur de pommier, agrumes doux et épice fine. Facile et frais."},
+  en:{cat:"White",notes:"Light and delicate with apple blossom, mild citrus, and gentle spice. Easy, fresh and approachable."}},
+{title:"Domaine Brand Roi Soleil Riesling 2022",region:"Alsace, France",grape:"Riesling",
+  fr:{cat:"Blanc",notes:"Riesling alsacien éclatant — citron vert, notes pétrolées, pêche blanche et acidité rasoir. Classique et de garde."},
+  en:{cat:"White",notes:"Vivid Alsatian Riesling with lime, petrol whispers, white peach, and razor-sharp acidity. Classic and age-worthy."}},
+{title:"Domaine de L'Anglore Nizon 2023",region:"Tavel, Rhône, France",grape:"Grenache, Clairette",
+  fr:{cat:"Rosé",notes:"Rosé pâle et sérieux — pastèque, herbes et finale sèche saline et minérale."},
+  en:{cat:"Rosé",notes:"Pale, serious Tavel-area rosé with watermelon, herbs, and a dry saline mineral finish."}},
+{title:"Domaine de L'Anglore Tavel 2022",region:"Tavel, Rhône, France",grape:"Grenache, Cinsault",
+  fr:{cat:"Rosé",notes:"Un des rosés de référence de France — teinté d'ambre, texturé, cerise séchée, garrigue et longue finale épicée."},
+  en:{cat:"Rosé",notes:"One of France's benchmark rosés — amber-tinted, textured, with dried cherry, garrigue, and a long spiced finish."}},
+{title:"Domaine de La Loue La Brute 2023",region:"Jura, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Chardonnay jurassien sauvage et non filtré — oxydatif, noisette, pomme jaune et caractère rustique en cire."},
+  en:{cat:"White",notes:"Wild and unfiltered Jura Chardonnay — oxidative, nutty, with yellow apple and a rustic beeswax character."}},
+{title:"Domaine de La Loue Savagnin 2022",region:"Jura, France",grape:"Savagnin",
+  fr:{cat:"Blanc",notes:"Savagnin ouillé authentique — noix, coing, curry jaune et longue finale saline. Profondément jurassien."},
+  en:{cat:"White",notes:"Authentic ouillé Savagnin — walnut, quince, yellow curry, and a long saline finish. Distinctly Jurassien."}},
+{title:"Domaine de la Tournelle Au lever du Rouge 2022",region:"Jura, France",grape:"Poulsard",
+  fr:{cat:"Rouge",notes:"Poulsard d'une légèreté diaphane — fraise des bois, églantier et texture presque transparente."},
+  en:{cat:"Red",notes:"Gossamer-light Poulsard with wild strawberry, rose hip, and a silky, almost transparent texture."}},
+{title:"Domaines des Bodines Savagnin 2018",region:"Jura, France",grape:"Savagnin",
+  fr:{cat:"Blanc",notes:"Élevé sous voile — noix complexe, figue sèche, safran et acidité vive. Notes oxydatives profondes."},
+  en:{cat:"White",notes:"Aged sous voile with complex oxidative notes — walnut, dried fig, saffron, and bracing acid."}},
+{title:"Domaines des Bodines Savagnin 2020",region:"Jura, France",grape:"Savagnin",
+  fr:{cat:"Blanc",notes:"Expression plus jeune, encore oxydative — coing, curry et noisette grillée avec plus de fraîcheur."},
+  en:{cat:"White",notes:"Younger expression, still oxidative in character but with more freshness — quince, curry, and toasted hazelnut."}},
+{title:"Domaines des Bodines Savagnin Chardonnay 2019",region:"Jura, France",grape:"Savagnin, Chardonnay",
+  fr:{cat:"Blanc",notes:"Assemblage qui adoucit la puissance du Savagnin — texture crémeuse, notes noisettées et pomme fraîche."},
+  en:{cat:"White",notes:"A blend that softens the Savagnin's power — creamy texture with nutty oxidative notes and fresh apple."}},
+{title:"Domaine du Chamounet Loulou 2024",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay carbonique frais et vibrant — fruits rouges juteux, pivoine et finale joyeuse désaltérante."},
+  en:{cat:"Red",notes:"Fresh, vibrant carbonic Gamay — juicy red fruit, peony, and a joyful, thirst-quenching finish."}},
+{title:"Domaine du Chamounet A la Fraiche 2024",region:"Beaujolais, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Beaujolais Blanc croquant en faible intervention — pomme verte, citron et minéralité pierreuse."},
+  en:{cat:"White",notes:"Crisp, low-intervention Beaujolais Blanc — green apple, lemon, and earthy stone minerality."}},
+{title:"Domaine Houillon Cinsault 2023",region:"Jura, France",grape:"Cinsault",
+  fr:{cat:"Rouge",notes:"Cinsault pâle et parfumé du successeur de Pierre Overnoy — fraise, herbes et tanins quasi absents."},
+  en:{cat:"Red",notes:"Pale, perfumed Cinsault from Pierre Overnoy's successor — strawberry, herbs, and barely-there tannins."}},
+{title:"Domaine Houillon Gravières 2023",region:"Jura, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Chardonnay jurassien de référence — tendu et pur, fruit jaune, craie et fraîcheur électrique."},
+  en:{cat:"White",notes:"Benchmark natural Jura Chardonnay — tense and pure with yellow fruit, chalk, and electric freshness."}},
+{title:"Domaine Bangarang 2024",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Beaujolais pêchu et joueur — fruits rouges croquants, épice et énergie naturelle irrésistible."},
+  en:{cat:"Red",notes:"Fun, punchy Beaujolais with crunchy red fruit, spice, and an irreverent natural energy."}},
+{title:"Domaine Mosse Bisou 2024",region:"Anjou, Loire, France",grape:"Cabernet Franc",
+  fr:{cat:"Rouge",notes:"Cab Franc souple et peu tannique — framboise, mine de crayon et violettes. Charmeur et gourmand."},
+  en:{cat:"Red",notes:"Soft, low-tannin Cab Franc with raspberry, pencil shavings, and violets. Gulpable and charming."}},
+{title:"Domaine Mosse Bonnes Blanches 2023",region:"Anjou, Loire, France",grape:"Chenin Blanc",
+  fr:{cat:"Blanc",notes:"Chenin précis et minéral — cire d'abeille, coing, zeste d'agrume et longue finale crayeuse."},
+  en:{cat:"White",notes:"Precise and mineral Chenin — beeswax, quince, citrus zest, and a long chalky finish."}},
+{title:"Domaine Mosse Combo 2025",region:"Anjou, Loire, France",grape:"Cabernet Franc, Grolleau",
+  fr:{cat:"Rouge",notes:"Rouge léger et vif — herbes sauvages, baies rouges et fraîcheur croquante naturelle."},
+  en:{cat:"Red",notes:"Light-touch red blend with wild herbs, red berries, and a lively, crunchy freshness."}},
+{title:"Domaine Mosse Moussamoussettes 2025",region:"Anjou, Loire, France",grape:"Grolleau, Gamay",
+  fr:{cat:"Pét-nat",notes:"Pét-nat joueur et pétillant — fraise, framboise et touche sauvage levurée spontanée."},
+  en:{cat:"Pet-nat",notes:"Playful, fizzy pét-nat with strawberry, raspberry, and a wild yeasty spontaneous edge."}},
+{title:"Es D'aqui Mefia'T",region:"Roussillon, France",grape:"Grenache, Carignan",
+  fr:{cat:"Rouge",notes:"Rouge du sud robuste et rustique — prune noire, garrigue, cuir et épices chaudes."},
+  en:{cat:"Red",notes:"Robust and rustic southern red with dark plum, garrigue, leather, and warm spice."}},
+{title:"Es D'aqui Paloma",region:"Roussillon, France",grape:"Grenache Blanc, Macabeu",
+  fr:{cat:"Blanc",notes:"Blanc ensoleillé — pêche blanche, anis et légère touche réductive et savoureuse."},
+  en:{cat:"White",notes:"Sun-drenched white with white peach, anise, and a savory, slightly reductive edge."}},
+{title:"Es D'aqui Tracheo",region:"Roussillon, France",grape:"Grenache Gris",
+  fr:{cat:"Orange",notes:"Macération avec teinte ambrée — écorce d'orange, herbes séchées et tanins terreux."},
+  en:{cat:"Orange",notes:"Skin-contact with amber hue, orange peel, dried herbs, and earthy tannins."}},
+{title:"Filari Carussin 2022",region:"Piedmont / Piémont, Italy",grape:"Barbera",
+  fr:{cat:"Rouge",notes:"Barbera naturelle — cerise, prune, rose séchée et acidité franche. Rustique et expressif."},
+  en:{cat:"Red",notes:"Natural Barbera with cherry, plum, dried roses, and firm acidity. Rustic and expressive."}},
+{title:"Franz Saumon La Roue qui Tourne 2023",region:"Loire, France",grape:"Menu Pineau",
+  fr:{cat:"Blanc",notes:"Cépage ligérien rare — délicat, floral, fleur blanche, pomme croquante et finale terreuse."},
+  en:{cat:"White",notes:"Rare Loire variety — delicate, floral, with white flowers, crisp apple, and an earthy finish."}},
+{title:"Franz Saumon Vin de Frantz 2024",region:"Loire, France",grape:"Menu Pineau",
+  fr:{cat:"Blanc",notes:"Vif et direct — agrumes, notes herbacées et fine acidité."},
+  en:{cat:"White",notes:"Vibrant and direct — citrus-forward with grassy notes and fine acidity."}},
+{title:"François St Lo Les Pouches 2021",region:"Loire, France",grape:"Melon de Bourgogne",
+  fr:{cat:"Blanc",notes:"Style Muscadet — citron, coquille d'huître et minéralité saline tranchante. Idéal avec les fruits de mer."},
+  en:{cat:"White",notes:"Muscadet-style with lemon, oyster shell, and a bracing saline minerality. Great with seafood."}},
+{title:"Hervé Souhaut Les Souteronnes 2024",region:"Ardèche, France",grape:"Viognier, Marsanne",
+  fr:{cat:"Blanc",notes:"Riche et aromatique — abricot, chèvrefeuille et pêche blanche équilibrés par une acidité vive."},
+  en:{cat:"White",notes:"Aromatically rich with apricot, honeysuckle, and white peach — balanced by crisp acidity."}},
+{title:"Hotline Vin de Tété 2023",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay vibrant et festif — cerise juteuse, violette écrasée et croquant naturel."},
+  en:{cat:"Red",notes:"Vibrant and fun Gamay with juicy cherry, crushed violet, and a fun natural crunch."}},
+{title:"Il Farneto Rio Rocca Still White",region:"Emilia-Romagna, Italy",grape:"Trebbiano, Albana",
+  fr:{cat:"Blanc",notes:"Blanc italien terreux et texturé — camomille, zeste de citron et légère touche d'herbes sauvages."},
+  en:{cat:"White",notes:"Earthy, textured Italian white with chamomile, lemon pith, and a hint of wild herbs."}},
+{title:"Jean-Marc Dreyer Elios 2023",region:"Alsace, France",grape:"Pinot Gris",
+  fr:{cat:"Blanc",notes:"Pinot Gris retenu et minéral — poire fumée, gingembre et finale sèche et nette."},
+  en:{cat:"White",notes:"Restrained and mineral Pinot Gris with smoked pear, ginger, and a clean, dry finish."}},
+{title:"Jérôme Balmet Tête de Citron 2021",region:"Savoie, France",grape:"Roussette",
+  fr:{cat:"Blanc",notes:"Vif et floral — citron confit, fleur blanche et colonne vertébrale minérale et tendue."},
+  en:{cat:"White",notes:"Vivid and floral — lemon curd, white flowers, and a piercingly taut mineral backbone."}},
+{title:"Jérôme Balmet La Marbrière 2023",region:"Savoie, France",grape:"Jacquère",
+  fr:{cat:"Blanc",notes:"Fraîcheur alpine — pomme verte croquante, fleur sauvage et finale crayeuse et nette."},
+  en:{cat:"White",notes:"Alpine freshness — crisp green apple, wildflower, and a chalky, clean finish."}},
+{title:"La Ferme des Sept Lunes Raizin 2025",region:"Rhône, France",grape:"Syrah",
+  fr:{cat:"Rouge",notes:"Syrah du Rhône nord — violette, olive noire, viande fumée et finale poivrée et structurée."},
+  en:{cat:"Red",notes:"Northern Rhône Syrah with violet, black olive, smoked meat, and a peppery, structured finish."}},
+{title:"La Grapperie Pink B… 2023",region:"Loire, France",grape:"Pineau d'Aunis",
+  fr:{cat:"Rosé",notes:"Rosé pâle et épicé — fraise des bois, poivre blanc et caractère vif et savoureux."},
+  en:{cat:"Rosé",notes:"Pale, spiced rosé with wild strawberry, white pepper, and a zesty, savory character."}},
+{title:"La Grapperie Premières Tries 2023",region:"Loire, France",grape:"Chenin Blanc",
+  fr:{cat:"Blanc",notes:"Chenin ligérien — miel, coing, fleur d'agrume et acidité vibrante. Complexe et précis."},
+  en:{cat:"White",notes:"Loire Chenin with honey, quince, citrus blossom, and vibrant acidity. Complex and precise."}},
+{title:"Le Petit Bouchon Mañana 2023",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Beaujolais décontracté et joyeux — fraise et cerise fraîches, finale légère et désaltérante."},
+  en:{cat:"Red",notes:"Casual and joyful Beaujolais — fresh strawberry, cherry, and a light, thirst-quenching finish."}},
+{title:"Le Petit Bouchon Ultreïa 2023",region:"Beaujolais, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Beaujolais Blanc facile à vivre — pomme, citron et fraîcheur simple et nette."},
+  en:{cat:"White",notes:"Easy-drinking Beaujolais Blanc with apple, lemon, and a clean, uncomplicated freshness."}},
+{title:"Le Petit Bouchon Y'a de Tout 2023",region:"Beaujolais, France",grape:"Gamay, Pinot Noir",
+  fr:{cat:"Rouge",notes:"Rouge assemblage quotidien — cerise, herbes et caractère naturel et vif."},
+  en:{cat:"Red",notes:"Blended everyday red — cherry, herbs, and a lively natural character."}},
+{title:"Les Enfants Terribles Contre Jour Chapitre III",region:"Beaujolais, France",grape:"Chardonnay",
+  fr:{cat:"Orange",notes:"Chardonnay oxydatif en macération — abricot séché, camomille et tanin terreux."},
+  en:{cat:"Orange",notes:"Oxidative, skin-contact Chardonnay with dried apricot, chamomile, and earthy tannin."}},
+{title:"Les Enfants Terribles Esprit d'Alcove Chapitre III",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay texturé et sérieux — cerise noire, épice et plus de structure que les cuvées classiques."},
+  en:{cat:"Red",notes:"Textured and serious Gamay with dark cherry, spice, and more structure than the classic cuvées."}},
+{title:"Les Enfants Terribles Sous les Peupliers 2023",region:"Beaujolais, France",grape:"Aligoté",
+  fr:{cat:"Blanc",notes:"Aligoté vif et tranchant — citron, pomme verte et mordant crayeux. Pur et énergique."},
+  en:{cat:"White",notes:"Bright, sharp Aligoté with lemon, green apple, and chalky bite. Pure and energetic."}},
+{title:"Les Frères Soulier Clastre 2024",region:"Rhône, France",grape:"Grenache",
+  fr:{cat:"Rouge",notes:"Grenache du sud — petits fruits rouges, garrigue, olive et finale chaude et généreuse."},
+  en:{cat:"Red",notes:"Southern Grenache with red berry, garrigue, olive, and a warm, plush finish."}},
+{title:"Les Valseuses Ces Gens Là 2024",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay frais et vibrant style cru — cerise rouge, violette et grain fin."},
+  en:{cat:"Red",notes:"Fresh and vibrant cru-style Gamay with red cherry, crushed violet, and fine grain."}},
+{title:"Les Valseuses Como El Agua 2023",region:"Beaujolais, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Beaujolais Blanc fluide et expressif — citron, fleur blanche et finale minérale douce."},
+  en:{cat:"White",notes:"Fluid and expressive Beaujolais Blanc — lemon, white flower, and a soft mineral finish."}},
+{title:"Lucas Madonia Tsavouisse 2023",region:"Savoie, France",grape:"Mondeuse",
+  fr:{cat:"Rouge",notes:"Mondeuse sauvage et encré — mûre, violette, minerai ferreux et tanins fermes."},
+  en:{cat:"Red",notes:"Wild and inky Mondeuse with blackberry, violet, iron-inflected mineral edge, and firm tannins."}},
+{title:"Mare Nostrum Vini Bora 2023",region:"Corsica / Corse, France",grape:"Vermentino",
+  fr:{cat:"Blanc",notes:"Blanc corse éclatant — agrumes, pêche blanche, minéralité saline et finale vive."},
+  en:{cat:"White",notes:"Bright Corsican white with citrus, white peach, saline minerals, and a lively finish."}},
+{title:"Mare Nostrum Vini Mistral 2022",region:"Corsica / Corse, France",grape:"Nielluccio/Sangiovese",
+  fr:{cat:"Rouge",notes:"Rouge corse ferme et aromatique — cerise acidulée, romarin et tanins pierreux."},
+  en:{cat:"Red",notes:"Firm and aromatic Corsican red with sour cherry, rosemary, and stony tannins."}},
+{title:"Mas Foulaquier Into The Red 2024",region:"Pic Saint-Loup, France",grape:"Syrah, Grenache",
+  fr:{cat:"Rouge",notes:"Rouge du sud sombre et épicé — mûre, tapenade d'olive et finale fumée à la garrigue."},
+  en:{cat:"Red",notes:"Dark, spiced southern red with blackberry, olive tapenade, and a smoky, garrigue finish."}},
+{title:"Mas Foulaquier L'Orphée 2023",region:"Pic Saint-Loup, France",grape:"Roussanne, Grenache Blanc",
+  fr:{cat:"Blanc",notes:"Blanc riche et aromatique — fleur blanche, pêche et texture crémeuse mais fraîche."},
+  en:{cat:"White",notes:"Rich and aromatic white with white flowers, peach, and a creamy but fresh texture."}},
+{title:"Mas Foulaquier Les Salades Pic St Loup 2024",region:"Pic Saint-Loup, France",grape:"Syrah, Grenache",
+  fr:{cat:"Rouge",notes:"Pic Saint-Loup élégant — prune rouge, thym et finale soyeuse et herbeuse."},
+  en:{cat:"Red",notes:"Elegant Pic Saint-Loup red with red plum, thyme, and a silky herbal finish."}},
+{title:"Mas Foulaquier Oiseau Blanc 2025",region:"Pic Saint-Loup, France",grape:"Grenache Blanc",
+  fr:{cat:"Blanc",notes:"Blanc frais et facile — agrumes, pêche blanche et finale minérale nette."},
+  en:{cat:"White",notes:"Bright and early-drinking — citrus, white peach, and a clean mineral finish."}},
+{title:"Mas Foulaquier Orenji 2025",region:"Pic Saint-Loup, France",grape:"Grenache Gris",
+  fr:{cat:"Orange",notes:"Teinte ambrée — écorce d'orange, abricot séché et tanin terreux en douceur."},
+  en:{cat:"Orange",notes:"Amber-hued with orange peel, dried apricot, and gentle earthy tannin."}},
+{title:"Matthieu Appfel Avant la Tempête 2024",region:"Alsace, France",grape:"Auxerrois, Pinot Blanc",
+  fr:{cat:"Blanc",notes:"Assemblage alsacien floral et expressif — poire, épice et finale sèche et nette."},
+  en:{cat:"White",notes:"Floral and expressive Alsatian blend with pear, spice, and a clean, dry finish."}},
+{title:"Maxime Crotet Pinot Noir 2024",region:"Burgundy / Bourgogne, France",grape:"Pinot Noir",
+  fr:{cat:"Rouge",notes:"Pinot léger en style bourguignon — cerise rouge, sous-bois et notes terreuses délicates."},
+  en:{cat:"Red",notes:"Light-footed Burgundy-style Pinot with red cherry, forest floor, and gentle earthy notes."}},
+{title:"Olivier Boulin SC2 2022/2023",region:"Burgundy / Bourgogne, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Chardonnay tendu et minéral — pomme verte, agrumes et structure crayeuse bourguignonne."},
+  en:{cat:"White",notes:"Tense and mineral Chardonnay with green apple, citrus, and a chalky Burgundian structure."}},
+{title:"Olivier Boulin Aligochocho 2020",region:"Burgundy / Bourgogne, France",grape:"Aligoté",
+  fr:{cat:"Blanc",notes:"Aligoté élevé sérieux — citron confit, pomme verte et colonne saline et lumineuse."},
+  en:{cat:"White",notes:"Serious, aged Aligoté with lemon curd, green apple, and a bright, saline backbone."}},
+{title:"Patrick Bouju FEstejar 2023",region:"Auvergne, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay auvergnat festif et vif — cerise rouge, herbes sauvages et énergie naturelle croquante."},
+  en:{cat:"Red",notes:"Festive and bright Auvergne Gamay — red cherry, wild herbs, and a crunchy, natural energy."}},
+{title:"Patrick Bourru GM 2023",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay juteux et facile — fruits rouges éclatants et texture douce presque crémeuse."},
+  en:{cat:"Red",notes:"Juicy, early-drinking Gamay with bright red fruit and a soft, almost creamy texture."}},
+{title:"Patrick Bouju La Commune 2021",region:"Auvergne, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Plus de profondeur et de structure — cerise noire, minéralité volcanique et tanins fins."},
+  en:{cat:"Red",notes:"Deeper and more structured — dark cherry, volcanic mineral edge, and fine tannins."}},
+{title:"Patrick Bouju Lulu 2023",region:"Auvergne, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Chardonnay auvergnat minéral et pur — citron, craie et air de montagne frais."},
+  en:{cat:"White",notes:"Mineral and pure Auvergne Chardonnay — lemon, chalk, and fresh mountain air."}},
+{title:"Patrick Bouju PG 2023/2024",region:"Auvergne, France",grape:"Pinot Gris",
+  fr:{cat:"Blanc",notes:"Pinot Gris atypique d'Auvergne — poire fumée, gingembre et finale sèche minérale."},
+  en:{cat:"White",notes:"Unusual Pinot Gris from Auvergne — smoked pear, ginger, and a dry mineral finish."}},
+{title:"Pedecastello Bianco Frizzante 2023",region:"Trentino, Italy",grape:"Nosiola",
+  fr:{cat:"Pétillant",notes:"Blanc pétillant léger — fleur d'agrume, amande et bulles fines et nettes."},
+  en:{cat:"Sparkling",notes:"Light and fizzy Italian white — citrus blossom, almonds, and a fine, clean sparkle."}},
+{title:"Pedecastello Rosato Frizzante 2023",region:"Trentino, Italy",grape:"Lagrein, Teroldego",
+  fr:{cat:"Pétillant",notes:"Rosé pétillant vif — fruits sauvages, grenade et acidité vivante."},
+  en:{cat:"Sparkling",notes:"Vibrant sparkling rosé with wild berry, pomegranate, and lively acidity."}},
+{title:"Perrault-Jadaud Haut les Choeurs",region:"Loire, France",grape:"Chenin Blanc",
+  fr:{cat:"Blanc",notes:"Chenin expressif en faible intervention — miel, cire d'abeille, coing et acidité énergique."},
+  en:{cat:"White",notes:"Expressive, low-intervention Chenin with honey, beeswax, quince, and energetic acidity."}},
+{title:"Perrault-Jadaud Les Fauves",region:"Loire, France",grape:"Cabernet Franc",
+  fr:{cat:"Rouge",notes:"Cab Franc sauvage et herbacé — groseille, graphite et tension végétale minérale."},
+  en:{cat:"Red",notes:"Wild and herbaceous Cab Franc with red currant, graphite, and leafy, mineral tension."}},
+{title:"Ruppert-Leroy Fosse Grely 2022",region:"Champagne, France",grape:"Pinot Noir",
+  fr:{cat:"Pétillant",notes:"Champagne de vigneron — petits fruits rouges, brioche, craie et mousse tendue et vibrante."},
+  en:{cat:"Sparkling",notes:"Grower Champagne with red berry, brioche, chalk, and a taut, vibrant mousse."}},
+{title:"Soeur Cadette Melon de Bourgogne 2023",region:"Burgundy / Bourgogne, France",grape:"Melon de Bourgogne",
+  fr:{cat:"Blanc",notes:"Melon en Bourgogne intérieure — citron, coquille d'huître et minéralité saline fraîche."},
+  en:{cat:"White",notes:"Unusual Melon inland — lemon, oyster shell, and a fresh saline minerality."}},
+{title:"Sous le Végétal Livia 2019",region:"Jura, France",grape:"Chardonnay",
+  fr:{cat:"Blanc",notes:"Chardonnay jurassien évolué — noisette, coing et longue finale oxydative."},
+  en:{cat:"White",notes:"Aged Jura Chardonnay with evolved character — hazelnut, quince, and a long oxidative finish."}},
+{title:"Tristan Rampon Aux Arbres",region:"Beaujolais, France",grape:"Gamay",
+  fr:{cat:"Rouge",notes:"Gamay terreux et sous-bois — cerise rouge, champignon et tanin naturel doux."},
+  en:{cat:"Red",notes:"Earthy and forest-floor Gamay — red cherry, mushroom, and a gentle wild tannin."}},
+{title:"Weingut Edgar Brutler Drum Bun 2023",region:"Austria / Autriche",grape:"Grüner Veltliner",
+  fr:{cat:"Blanc",notes:"GrVe propre et poivré — poivre blanc, herbes vertes, agrumes et minéralité pierreuse."},
+  en:{cat:"White",notes:"Clean and peppery GrVe — white pepper, green herb, citrus, and stony minerality."}},
+{title:"Weingut Edgar Brutler Gisela 2023",region:"Austria / Autriche",grape:"Welschriesling",
+  fr:{cat:"Blanc",notes:"Blanc autrichien frais et floral — pomme, poire et finale nette et croquante."},
+  en:{cat:"White",notes:"Fresh and floral Austrian white with apple, pear, and a bracing, clean finish."}},
+{title:"Werlisch Dreigenerationenwein 2021",region:"Styria / Styrie, Austria",grape:"Sauvignon Blanc, Assemblage",
+  fr:{cat:"Blanc",notes:"Assemblage trois générations — herbacé, minéral et complexe avec agrumes et fruit à noyau."},
+  en:{cat:"White",notes:"Three-generation blend — herbaceous, mineral, and complex with citrus and stone fruit."}},
+{title:"Werlitsch Freude 2019",region:"Styria / Styrie, Austria",grape:"Sauvignon Blanc, Welschriesling",
+  fr:{cat:"Orange",notes:"Macération élevée — ambre profond, coing, herbes séchées et finale texturée et tannique."},
+  en:{cat:"Orange",notes:"Aged skin-contact with amber depth, quince, dried herbs, and a grippy, textured finish."}},
+{title:"Yann Durrmann Riesling Sur Granit Rebbuehl 2024",region:"Alsace, France",grape:"Riesling",
+  fr:{cat:"Blanc",notes:"Riesling sur granit — agrumes tranchants, petrichor, pêche blanche et longue colonne minérale."},
+  en:{cat:"White",notes:"Granitic Riesling — razor-sharp citrus, petrichor, white peach, and a long mineral spine."}},
+{title:"Yann Durrmann Sylvaner 2024",region:"Alsace, France",grape:"Sylvaner",
+  fr:{cat:"Blanc",notes:"Discret et pur — citron, camomille et fraîcheur minérale terreuse et nette."},
+  en:{cat:"White",notes:"Understated and pure — lemon, chamomile, and a clean, earthy mineral freshness."}},
+{title:"Yves Amberg Ensemble 2024",region:"Alsace, France",grape:"Assemblage / Blend",
+  fr:{cat:"Blanc",notes:"Expression alsacienne assemblée — floral et épicé avec fruit mûr et finale sèche."},
+  en:{cat:"White",notes:"Blended Alsatian expression — floral and spiced with ripe fruit and a dry finish."}},
+{title:"Yves Amberg N°6 2024",region:"Alsace, France",grape:"Pinot Noir Blanc",
+  fr:{cat:"Blanc",notes:"Pinot Noir vinifié en blanc — délicat, floral, arômes de fruits rouges et arête minérale."},
+  en:{cat:"White",notes:"Skin-off Pinot Noir vinified white — delicate, floral, with red fruit aromas and a mineral edge."}},
+{title:"Vouette et Sorbée Blanc d'Argile 22/23",region:"Champagne, France",grape:"Chardonnay",
+  fr:{cat:"Pétillant",notes:"Champagne de vigneron sur argiles — riche et tendu, agrumes, cire d'abeille, craie et bulles fines persistantes."},
+  en:{cat:"Sparkling",notes:"Clay-soils grower Champagne — rich yet tense, with citrus, beeswax, chalk, and fine persistent bubbles."}},
+{title:"Vouette et Sorbée Fidèle",region:"Champagne, France",grape:"Pinot Noir",
+  fr:{cat:"Pétillant",notes:"Champagne pur Pinot Noir — petits fruits rouges, brioche, terre et mousse crémeuse et vive."},
+  en:{cat:"Sparkling",notes:"Pure Pinot Noir Champagne — red berry, brioche, earth, and a creamy, vibrant mousse."}},
 ];
 
-const bc={Blanc:'b-blanc',Rouge:'b-rouge',Rosé:'b-rose',Orange:'b-orange',Pétillant:'b-petillant','Pét-nat':'b-petnat'};
-const grid=document.getElementById('grid');
-const countEl=document.getElementById('count');
-const emptyEl=document.getElementById('empty');
-let cat='all',q='';
+let lang='fr', cat='all', q='';
 
-function render(){
-  const s=q.toLowerCase();
-  const f=wines.filter(w=>(cat==='all'||w.cat===cat)&&(!s||w.title.toLowerCase().includes(s)||w.region.toLowerCase().includes(s)||w.grape.toLowerCase().includes(s)||w.notes.toLowerCase().includes(s)));
-  grid.innerHTML=f.map(w=>`<div class="card"><div class="card-head"><div class="card-title">${w.title}</div><span class="badge ${bc[w.cat]||'b-blanc'}">${w.cat}</span></div><div class="region">${w.region}</div><div class="notes">${w.notes}</div><div class="grape">${w.grape}</div></div>`).join('');
-  countEl.textContent=f.length+' vin'+(f.length>1?'s':'');
-  emptyEl.style.display=f.length?'none':'block';
-  grid.style.display=f.length?'grid':'none';
+function buildFilters(){
+  const f=document.getElementById('filters');
+  const l=ui[lang];
+  f.innerHTML=`<button class="fbtn active" data-cat="all">${l.all}</button>`+
+    l.cats.map(c=>`<button class="fbtn" data-cat="${c}">${c}</button>`).join('');
+  f.querySelectorAll('.fbtn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      f.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');cat=b.dataset.cat;render();
+    });
+  });
 }
 
-document.querySelectorAll('.fbtn').forEach(b=>{
+function render(){
+  const l=ui[lang];
+  document.getElementById('main-title').textContent=l.title;
+  document.getElementById('search').placeholder=l.search;
+  document.getElementById('empty').textContent=l.empty;
+  const s=q.toLowerCase();
+  const filtered=wines.filter(w=>{
+    const d=w[lang];
+    const catOk=cat==='all'||d.cat===cat;
+    const txtOk=!s||w.title.toLowerCase().includes(s)||w.region.toLowerCase().includes(s)||w.grape.toLowerCase().includes(s)||d.notes.toLowerCase().includes(s);
+    return catOk&&txtOk;
+  });
+  document.getElementById('count').textContent=l.count(filtered.length);
+  const grid=document.getElementById('grid');
+  grid.innerHTML=filtered.map(w=>{
+    const d=w[lang];
+    return`<div class="card"><div class="card-head"><div class="card-title">${w.title}</div><span class="badge ${badgeClass[d.cat]||'b-blanc'}">${d.cat}</span></div><div class="region">${w.region}</div><div class="notes">${d.notes}</div><div class="grape">${w.grape}</div></div>`;
+  }).join('');
+  grid.style.display=filtered.length?'grid':'none';
+  document.getElementById('empty').style.display=filtered.length?'none':'block';
+}
+
+document.querySelectorAll('.lang-btn').forEach(b=>{
   b.addEventListener('click',()=>{
-    document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active'));
-    b.classList.add('active');cat=b.dataset.cat;render();
+    document.querySelectorAll('.lang-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    lang=b.dataset.lang;
+    cat='all';
+    q='';
+    document.getElementById('search').value='';
+    buildFilters();
+    render();
   });
 });
 document.getElementById('search').addEventListener('input',e=>{q=e.target.value;render();});
+
+buildFilters();
 render();
 </script>
 </body>
